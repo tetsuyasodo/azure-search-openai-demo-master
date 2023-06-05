@@ -108,6 +108,7 @@ error_model = api.model('error', {
 
 # /ask エンドポイント-- リクエストを送ると、レスポンスで回答が返る
 @api.route("/ask", endpoint='ask')
+@api.header('content-type', 'application/json')
 class Ask(Resource):
     @api.doc(body=ask_model)
     @api.response(200, 'Success', answer_model)
@@ -128,6 +129,7 @@ class Ask(Resource):
 
 # /chat エンドポイント-- リクエストを送ると、過去履歴をもとにチャットで対話ができる
 @api.route("/chat", endpoint='chat')
+@api.header('content-type', 'application/json')
 class Chat(Resource):
     @api.doc(body=chat_model)
     @api.response(200, 'Success', answer_model)
