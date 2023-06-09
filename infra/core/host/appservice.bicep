@@ -34,6 +34,10 @@ param scmDoBuildDuringDeployment bool = false
 param use32BitWorkerProcess bool = false
 param ftpsState string = 'FtpsOnly'
 param healthCheckPath string = ''
+//vnet itegration
+param subnetId string = ''
+
+param private bool = false
 
 resource appService 'Microsoft.Web/sites@2022-03-01' = {
   name: name
@@ -55,9 +59,13 @@ resource appService 'Microsoft.Web/sites@2022-03-01' = {
       cors: {
         allowedOrigins: union([ 'https://portal.azure.com', 'https://ms.portal.azure.com' ], allowedOrigins)
       }
+      publicNetworkAccess: (private) ? 'Enabled' : 'Disabled'
     }
     clientAffinityEnabled: clientAffinityEnabled
     httpsOnly: true
+    //vnet integration
+    virtualNetworkSubnetId: subnetId
+    vnetContentShareEnabled: true
   }
 
   identity: { type: managedIdentity ? 'SystemAssigned' : 'None' }
@@ -97,4 +105,5 @@ resource applicationInsights 'Microsoft.Insights/components@2020-02-02' existing
 
 output identityPrincipalId string = managedIdentity ? appService.identity.principalId : ''
 output name string = appService.name
+output id string = appService.id
 output uri string = 'https://${appService.properties.defaultHostName}'

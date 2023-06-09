@@ -19,6 +19,8 @@ param sku object = { name: 'Standard_LRS' }
 
 param containers array = []
 
+param private bool = false
+
 resource storage 'Microsoft.Storage/storageAccounts@2022-05-01' = {
   name: name
   location: location
@@ -37,7 +39,7 @@ resource storage 'Microsoft.Storage/storageAccounts@2022-05-01' = {
       bypass: 'AzureServices'
       defaultAction: 'Allow'
     }
-    publicNetworkAccess: publicNetworkAccess
+    publicNetworkAccess: (private) ? 'Enabled' : 'Disabled'
   }
 
   resource blobServices 'blobServices' = if (!empty(containers)) {
@@ -56,3 +58,4 @@ resource storage 'Microsoft.Storage/storageAccounts@2022-05-01' = {
 
 output name string = storage.name
 output primaryEndpoints object = storage.properties.primaryEndpoints
+output id string = storage.id

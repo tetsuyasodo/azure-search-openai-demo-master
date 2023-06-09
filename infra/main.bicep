@@ -44,6 +44,8 @@ var abbrs = loadJsonContent('abbreviations.json')
 var resourceToken = toLower(uniqueString(subscription().id, environmentName, location))
 var tags = { 'env-name': environmentName }
 
+var private = false
+
 // Organize resources in a resource group
 resource rg 'Microsoft.Resources/resourceGroups@2021-04-01' = {
   name: !empty(resourceGroupName) ? resourceGroupName : '${environmentName}'
@@ -103,6 +105,9 @@ module backend 'core/host/appservice.bicep' = {
       AZURE_OPENAI_GPT_DEPLOYMENT: gptDeploymentName
       AZURE_OPENAI_CHATGPT_DEPLOYMENT: chatGptDeploymentName
     }
+    //vnet integration
+    subnetId: vnet.outputs.appSubnetId
+    private: private
   }
 }
 
@@ -140,6 +145,7 @@ module cognitiveServices 'core/ai/cognitiveservices.bicep' = {
         }
       }
     ]
+    private: private
   }
 }
 
@@ -159,6 +165,7 @@ module searchServices 'core/search/search-services.bicep' = {
       name: searchServicesSkuName
     }
     semanticSearch: 'free'
+    private: private
   }
 }
 
@@ -183,6 +190,7 @@ module storage 'core/storage/storage-account.bicep' = {
         publicAccess: 'None'
       }
     ]
+    private: private
   }
 }
 
@@ -267,6 +275,95 @@ module searchRoleBackend 'core/security/role.bicep' = {
     principalType: 'ServicePrincipal'
   }
 }
+
+
+// Vnet
+param vnetName string = 'vnet'
+param peSubnetName string = 'privateEndpointSubnet'
+param appSubnetName string = 'appServiceSubnet'
+param vnetAddressPrefix string = '10.0.0.0/16'
+param peSubnetAddressPrefix string = '10.0.1.0/24'
+param appSubnetAddressPrefix string = '10.0.2.0/24'
+
+module vnet 'core/network/vnet.bicep' = if ( private ) {
+  scope: rg
+  name: 'vnet'
+  params: {
+    vnetName: vnetName
+    location: location
+    tags: tags
+    vnetAddressPrefix: vnetAddressPrefix
+    peSubnetAddressPrefix: peSubnetAddressPrefix
+    appSubnetAddressPrefix: appSubnetAddressPrefix
+    peSubnetName: peSubnetName
+    appSubnetName: appSubnetName
+  }
+}
+
+// Private Endpoint
+module appServicePrivateEndpoint 'core/network/private-endpoint.bicep' = if ( private ) {
+  scope: rg
+  name: 'appServicePrivateEndpoint'
+  params: {
+    privateDnsZoneName: 'privatelink.azurewebsites.net'
+    location: location
+    tags: tags
+    vnetId: vnet.outputs.vnetId
+    subnetId: vnet.outputs.subnetId
+    privateEndpointName: 'pe-appservice'
+    privateLinkServiceId: backend.outputs.id
+    privateLinkServicegroupId: 'sites'
+  }
+}
+
+module searchPrivateEndpoint 'core/network/private-endpoint.bicep' = if ( private ) {
+  scope: rg
+  name: 'searchPrivateEndpoint'
+  params: {
+    privateDnsZoneName: 'privatelink.search.windows.net'
+    location: location
+    tags: tags
+    vnetId: vnet.outputs.vnetId
+    subnetId: vnet.outputs.subnetId
+    privateEndpointName: 'pe-searchservice'
+    privateLinkServiceId: searchServices.outputs.id
+    privateLinkServicegroupId: 'searchService'
+  }
+}
+
+module storagePrivateEndpoint 'core/network/private-endpoint.bicep' = if ( private ) {
+  scope: rg
+  name: 'storagePrivateEndpoint'
+  params: {
+    privateDnsZoneName: 'privatelink.blob.core.windows.net'
+    location: location
+    tags: tags
+    vnetId: vnet.outputs.vnetId
+    subnetId: vnet.outputs.subnetId
+    privateEndpointName: 'pe-blob'
+    privateLinkServiceId: storage.outputs.id
+    privateLinkServicegroupId: 'BLOB'
+  }
+}
+
+module openaiPrivateEndpoint 'core/network/private-endpoint.bicep' = if ( private ) {
+  scope: rg
+  name: 'openaiPrivateEndpoint'
+  params: {
+    privateDnsZoneName: 'privatelink.openai.azure.com'
+    location: location
+    tags: tags
+    vnetId: vnet.outputs.vnetId
+    subnetId: vnet.outputs.subnetId
+    privateEndpointName: 'pe-openai'
+    privateLinkServiceId: cognitiveServices.outputs.id
+    privateLinkServicegroupId: 'account'
+  }
+}
+
+
+
+
 
 
 output AZURE_LOCATION string = location

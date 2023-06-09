@@ -9,6 +9,8 @@ param sku object = {
 param authOptions object = {}
 param semanticSearch string = 'disabled'
 
+param private bool = false
+
 resource search 'Microsoft.Search/searchServices@2021-04-01-preview' = {
   name: name
   location: location
@@ -29,7 +31,7 @@ resource search 'Microsoft.Search/searchServices@2021-04-01-preview' = {
       ipRules: []
     }
     partitionCount: 1
-    publicNetworkAccess: 'Enabled'
+    publicNetworkAccess: (private) ? 'Enabled' : 'Disabled'
     replicaCount: 1
     semanticSearch: semanticSearch
   }
