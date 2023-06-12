@@ -174,7 +174,7 @@ az deployment sub create \
 
 ![](images/bicep-extention.png)
 
-`infra\main.bicep`を選び右クリックで**[Open Bicep Visualizer]** をクリックすると構成がグラフィカルに表示されます。
+`infra\main.bicep`を選び右クリックで **[Open Bicep Visualizer]** をクリックすると構成がグラフィカルに表示されます。
 
 ![](images/bicep.png)
 
@@ -185,11 +185,8 @@ Azure環境の作成は40分程度かかります。
 
 Azureを利用するにあたり、セキュリティの設定は欠かせません。ここでは、Azure OpenAI Serviceはじめ、Azureの各種サービスを安全に利用するために知っておきたいネットワークセキュリティに関する講義を行います。
 
-資料:
-xxx
 
-アーキテクチャ:
-xxx
+![](images/network-overview.png)
 
 
 
@@ -308,7 +305,7 @@ Form Recognizerを使って、身近なドキュメントの読み取りを試�
 次に用意したテキストデータをChatGPTで扱えるようチャンク分割していきます。
 Visual Studio Codeを開き`notebook/TextChunking.ipynb`をダブルクリックします。
 
-本ワークショップ環境はJupyter Notebookの環境がセットアップされていますので、次のようなNotebookが表示されます。
+本ワークショップ環境はJupyter Notebookの環境がセットアップされていますので、次のようなNotebookが表示されます。もしカーネルが選択されていない場合は「 **Python 3.10.11** 」を選んでください。
 
 ![](images/jupyter1.png)
 
@@ -587,7 +584,7 @@ API Managementで管理したいAPIを登録します。今回は[`OpenAPI`]を�
 
 ![](images/apim3.png)
 
-次に、[ **Create from OpenAPI specification** ]ダイアログが表示されるので、「 **OpenAPI specification** 」に以下の`swagger.json`ファイルを指定します。**`API URL suffix`** には「`api`」を指定します。
+次に、[ **Create from OpenAPI specification** ]ダイアログが表示されるので、「 **OpenAPI specification** 」に以下の`swagger.json`ファイルを指定します。「 **API URL suffix** 」には「`api`」を指定します。
 
 ```bash
 https://app-backend-<your_name>.azurewebsites.net/swagger.json
