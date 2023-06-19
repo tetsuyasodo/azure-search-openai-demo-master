@@ -5,11 +5,12 @@ param tags object = {}
 param customSubDomainName string = name
 param deployments array = []
 param kind string = 'OpenAI'
-//param publicNetworkAccess string = 'Enabled'
+param publicNetworkAccess string = 'Enabled'
 param sku object = {
   name: 'S0'
 }
 param private bool = false
+param sourceIpAddress string = ''
 
 resource account 'Microsoft.CognitiveServices/accounts@2022-10-01' = {
   name: name
@@ -18,9 +19,17 @@ resource account 'Microsoft.CognitiveServices/accounts@2022-10-01' = {
   kind: kind
   properties: {
     customSubDomainName: customSubDomainName
-    //publicNetworkAccess: publicNetworkAccess
-    publicNetworkAccess: (private) ? 'Enabled' : 'Disabled'
-  }
+    publicNetworkAccess: publicNetworkAccess
+    //shoud be Disabled for closed environment. Set to Enabled for convenience during the workshop
+    networkAcls: {
+      defaultAction: (private) ? 'Deny' : 'Allow'
+      ipRules: (private) ? [
+        {
+          value: sourceIpAddress 
+        }
+      ] : []
+    } 
+  } 
   sku: sku
 }
 

@@ -13,13 +13,12 @@ param deleteRetentionPolicy object = {}
 param dnsEndpointType string = 'Standard'
 param kind string = 'StorageV2'
 param minimumTlsVersion string = 'TLS1_2'
-@allowed([ 'Enabled', 'Disabled' ])
-param publicNetworkAccess string = 'Disabled'
 param sku object = { name: 'Standard_LRS' }
 
 param containers array = []
 
 param private bool = false
+param sourceIpAddress string = ''
 
 resource storage 'Microsoft.Storage/storageAccounts@2022-05-01' = {
   name: name
@@ -37,9 +36,17 @@ resource storage 'Microsoft.Storage/storageAccounts@2022-05-01' = {
     minimumTlsVersion: minimumTlsVersion
     networkAcls: {
       bypass: 'AzureServices'
-      defaultAction: 'Allow'
+      // Allow access from the client PC
+      defaultAction: (private) ? 'Deny' : 'Allow'
+      ipRules: (private) ? [
+        {
+          action: 'Allow'
+          value: sourceIpAddress 
+        }
+      ] : []
     }
-    publicNetworkAccess: (private) ? 'Enabled' : 'Disabled'
+    //shoud be Disabled for closed environment. Set to Enabled for convenience during the workshop
+    publicNetworkAccess: 'Enabled'
   }
 
   resource blobServices 'blobServices' = if (!empty(containers)) {

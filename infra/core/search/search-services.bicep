@@ -10,6 +10,7 @@ param authOptions object = {}
 param semanticSearch string = 'disabled'
 
 param private bool = false
+param sourceIpAddress string = ''
 
 resource search 'Microsoft.Search/searchServices@2021-04-01-preview' = {
   name: name
@@ -28,10 +29,16 @@ resource search 'Microsoft.Search/searchServices@2021-04-01-preview' = {
     hostingMode: 'default'
     networkRuleSet: {
       bypass: 'None'
-      ipRules: []
+      // Allow access from the client PC
+      ipRules: (private) ? [
+        {
+          value: sourceIpAddress 
+        }
+      ] : []
     }
     partitionCount: 1
-    publicNetworkAccess: (private) ? 'Enabled' : 'Disabled'
+    //shoud be Disabled for closed environment. Set to Enabled for convenience during the workshop
+    publicNetworkAccess: 'Enabled'
     replicaCount: 1
     semanticSearch: semanticSearch
   }

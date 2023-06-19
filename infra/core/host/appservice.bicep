@@ -34,10 +34,11 @@ param scmDoBuildDuringDeployment bool = false
 param use32BitWorkerProcess bool = false
 param ftpsState string = 'FtpsOnly'
 param healthCheckPath string = ''
-//vnet itegration
-param subnetId string = ''
 
+//vnet itegration for closed environment
 param private bool = false
+param subnetId string = ''
+param sourceIpAddress string = ''
 
 resource appService 'Microsoft.Web/sites@2022-03-01' = {
   name: name
@@ -59,12 +60,45 @@ resource appService 'Microsoft.Web/sites@2022-03-01' = {
       cors: {
         allowedOrigins: union([ 'https://portal.azure.com', 'https://ms.portal.azure.com' ], allowedOrigins)
       }
-      publicNetworkAccess: (private) ? 'Enabled' : 'Disabled'
+      //shoud be Disabled for closed environment. Set to Enabled for convenience during the workshop
+      publicNetworkAccess: 'Enabled'
+      ipSecurityRestrictions: (private) ? [
+        {
+          action: 'Allow'
+          description: 'allow app deployment from client pc'
+          ipAddress: '${sourceIpAddress}/32'
+          name: 'AllowfromClientPC'
+          priority: 100
+        }
+        {
+          action: 'Deny'
+          description: 'Denyfromall'
+          ipAddress: '0.0.0.0/0'
+          name: 'AllowfromClientPC'
+          priority: 1000
+        }
+      ]:[]
+      scmIpSecurityRestrictions: (private) ? [
+        {
+          action: 'Allow'
+          description: 'allow app deployment from client pc'
+          ipAddress: '${sourceIpAddress}/32'
+          name: 'AllowfromClientPC'
+          priority: 100
+        }
+        {
+          action: 'Deny'
+          description: 'Denyfromall'
+          ipAddress: '0.0.0.0/0'
+          name: 'AllowfromClientPC'
+          priority: 1000
+        }
+      ]:[]
     }
     clientAffinityEnabled: clientAffinityEnabled
     httpsOnly: true
-    //vnet integration
-    virtualNetworkSubnetId: subnetId
+    //vnet integration for closed environment
+    virtualNetworkSubnetId: (private) ? subnetId : null
     vnetContentShareEnabled: true
   }
 

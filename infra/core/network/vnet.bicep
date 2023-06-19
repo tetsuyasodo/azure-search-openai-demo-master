@@ -10,6 +10,10 @@ param peSubnetAddressPrefix string = ''
 param appSubnetName string
 param appSubnetAddressPrefix string = ''
 
+param apimSubnetName string
+param apimSubnetAddressPrefix string = ''
+param apimNSGId string = ''
+
 resource vnet 'Microsoft.Network/virtualNetworks@2021-05-01' = {
   name: vnetName
   location: location
@@ -26,6 +30,15 @@ resource vnet 'Microsoft.Network/virtualNetworks@2021-05-01' = {
         properties: {
           addressPrefix: peSubnetAddressPrefix
           //networkSecurityGroup: { id: nsg_default.id }
+        }
+      }
+      {
+        name: apimSubnetName
+        properties: {
+          addressPrefix: apimSubnetAddressPrefix
+          networkSecurityGroup: { 
+            id: apimNSGId 
+          }
         }
       }
       {
@@ -48,5 +61,6 @@ resource vnet 'Microsoft.Network/virtualNetworks@2021-05-01' = {
 }
 
 output vnetId string = vnet.id
-output subnetId string = vnet.properties.subnets[0].id
-output appSubnetId string = vnet.properties.subnets[1].id
+output subnetId string = filter(vnet.properties.subnets, (subnet) => subnet.name == peSubnetName)[0].id
+output appSubnetId string = filter(vnet.properties.subnets, (subnet) => subnet.name == appSubnetName)[0].id
+output apimSubnetId string = filter(vnet.properties.subnets, (subnet) => subnet.name == apimSubnetName)[0].id
