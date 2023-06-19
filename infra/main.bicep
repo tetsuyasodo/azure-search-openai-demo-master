@@ -20,6 +20,13 @@ param publisherEmail string
 @minLength(1)
 param publisherName string
 
+@description('The IP address of the client making the request')
+@minLength(1)
+param sourceIpAddress string = '10.10.10.10'
+
+@description('whether to create a private deployment private-> true | public -> false')
+param private bool = false
+
 param resourceGroupName string = ''
 
 param apiManagementName string = ''
@@ -61,9 +68,12 @@ module apimanagement 'core/api/apimanagement.bicep' = {
     publisherName: publisherName
     location: location
     tags: tags
+    // private environment
+    private: private
+    apimsubnetId: ( private ) ? vnet.outputs.apimSubnetId : ''
+    publicIpAddressId: ( private ) ? publicIp.outputs.pipId : ''
   }
 }
-
 
 // Create an App Service Plan to group applications under the same payment plan and SKU
 module appServicePlan 'core/host/appserviceplan.bicep' = {
@@ -103,6 +113,10 @@ module backend 'core/host/appservice.bicep' = {
       AZURE_OPENAI_GPT_DEPLOYMENT: gptDeploymentName
       AZURE_OPENAI_CHATGPT_DEPLOYMENT: chatGptDeploymentName
     }
+    // vnet integration for private environment
+    private: private
+    subnetId: ( private ) ? vnet.outputs.appSubnetId : ''
+    sourceIpAddress: ( private) ? sourceIpAddress : ''
   }
 }
 
@@ -140,6 +154,9 @@ module cognitiveServices 'core/ai/cognitiveservices.bicep' = {
         }
       }
     ]
+    // for private environment
+    private: private
+    sourceIpAddress: ( private) ? sourceIpAddress : ''
   }
 }
 
@@ -159,6 +176,9 @@ module searchServices 'core/search/search-services.bicep' = {
       name: searchServicesSkuName
     }
     semanticSearch: 'free'
+    // for private environment
+    private: private
+    sourceIpAddress:  ( private) ? sourceIpAddress : ''
   }
 }
 
@@ -169,7 +189,6 @@ module storage 'core/storage/storage-account.bicep' = {
     name: !empty(storageAccountName) ? storageAccountName : '${abbrs.storageStorageAccounts}${resourceToken}'
     location: location
     tags: tags
-    publicNetworkAccess: 'Enabled'
     sku: {
       name: 'Standard_ZRS'
     }
@@ -183,6 +202,9 @@ module storage 'core/storage/storage-account.bicep' = {
         publicAccess: 'None'
       }
     ]
+    // for private environment
+    private: private
+    sourceIpAddress:  ( private) ? sourceIpAddress : ''
   }
 }
 
@@ -268,6 +290,209 @@ module searchRoleBackend 'core/security/role.bicep' = {
   }
 }
 
+// Vnet for private environment
+param vnetName string = 'vnet'
+param peSubnetName string = 'privateEndpointSubnet'
+param appSubnetName string = 'appServiceSubnet'
+param apimSubnetName string = 'apimServiceSubnet'
+param vnetAddressPrefix string = '10.0.0.0/16'
+param peSubnetAddressPrefix string = '10.0.1.0/24'
+param appSubnetAddressPrefix string = '10.0.2.0/24'
+param apimSubnetAddressPrefix string = '10.0.3.0/24'
+
+module vnet 'core/network/vnet.bicep' = if ( private ) {
+  scope: rg
+  name: vnetName
+  params: {
+    vnetName: vnetName
+    location: location
+    tags: tags
+    vnetAddressPrefix: vnetAddressPrefix
+    peSubnetAddressPrefix: peSubnetAddressPrefix
+    appSubnetAddressPrefix: appSubnetAddressPrefix
+    apimSubnetAddressPrefix: apimSubnetAddressPrefix
+    peSubnetName: peSubnetName
+    appSubnetName: appSubnetName
+    apimSubnetName: apimSubnetName
+    apimNSGId: (private) ? apimnsg.outputs.nsgId : ''
+  }
+}
+
+// for private environment used by API Management
+module publicIp 'core/network/publicip.bicep' = if ( private ) {
+  scope: rg
+  name: 'apimPublicIp'
+  params: {
+    publicIpName: '${abbrs.networkPublicIPAddresses}${resourceToken}'
+    location: location
+    tags: tags
+  }
+}
+
+// Private Endpoint for app service
+module appServicePrivateEndpoint 'core/network/private-endpoint.bicep' = if ( private ) {
+  scope: rg
+  name: 'appServicePrivateEndpoint'
+  params: {
+    privateDnsZoneName: 'privatelink.azurewebsites.net'
+    location: location
+    tags: tags
+    vnetId: (private) ? vnet.outputs.vnetId : ''
+    subnetId: (private) ? vnet.outputs.subnetId : ''
+    privateEndpointName: 'pe-appservice'
+    privateLinkServiceId: backend.outputs.id
+    privateLinkServicegroupId: 'sites'
+  }
+}
+
+// Private Endpoint for search service
+module searchPrivateEndpoint 'core/network/private-endpoint.bicep' = if ( private ) {
+  scope: rg
+  name: 'searchPrivateEndpoint'
+  params: {
+    privateDnsZoneName: 'privatelink.search.windows.net'
+    location: location
+    tags: tags
+    vnetId: (private) ? vnet.outputs.vnetId : ''
+    subnetId: (private) ? vnet.outputs.subnetId : ''
+    privateEndpointName: 'pe-searchservice'
+    privateLinkServiceId: searchServices.outputs.id
+    privateLinkServicegroupId: 'searchService'
+  }
+}
+
+// Private Endpoint for storage
+module storagePrivateEndpoint 'core/network/private-endpoint.bicep' = if ( private ) {
+  scope: rg
+  name: 'storagePrivateEndpoint'
+  params: {
+    privateDnsZoneName: 'privatelink.blob.core.windows.net'
+    location: location
+    tags: tags
+    vnetId: (private) ? vnet.outputs.vnetId : ''
+    subnetId: (private) ? vnet.outputs.subnetId : ''
+    privateEndpointName: 'pe-blob'
+    privateLinkServiceId: storage.outputs.id 
+    privateLinkServicegroupId: 'BLOB'
+  }
+}
+
+// Private Endpoint for openai service
+module openaiPrivateEndpoint 'core/network/private-endpoint.bicep' = if ( private ) {
+  scope: rg
+  name: 'openaiPrivateEndpoint'
+  params: {
+    privateDnsZoneName: 'privatelink.openai.azure.com'
+    location: location
+    tags: tags
+    vnetId: (private) ? vnet.outputs.vnetId : ''
+    subnetId: (private) ? vnet.outputs.subnetId : ''
+    privateEndpointName: 'pe-openai'
+    privateLinkServiceId: cognitiveServices.outputs.id
+    privateLinkServicegroupId: 'account'
+  }
+}
+
+// NSG rules for API Management subnet
+// refer https://learn.microsoft.com/ja-jp/azure/api-management/api-management-using-with-vnet?tabs=stv2#configure-nsg-rules
+
+param apimNSG array = [
+  {
+    name: 'AllowClientInBound'
+    properties: {
+      description: 'AllowClientInBound'
+      protocol: 'TCP'
+      sourcePortRange: '*'
+      destinationPortRanges: ['80','443']
+      sourceAddressPrefix: 'Internet'
+      destinationAddressPrefix: 'VirtualNetwork'
+      access: 'Allow'
+      priority: 1000
+      direction: 'Inbound'
+    }
+  }
+  {
+    name: 'AllowManagementInBound'
+    properties: {
+      description: 'AllowManagementInBound'
+      protocol: 'TCP'
+      sourcePortRange: '*'
+      destinationPortRange: '3443'
+      sourceAddressPrefix: 'ApiManagement'
+      destinationAddressPrefix: 'VirtualNetwork'
+      access: 'Allow'
+      priority: 1001
+      direction: 'Inbound'
+    }
+  }
+  {
+    name: 'AllowLBInbound'
+    properties: {
+      description: 'AllowLBInbound'
+      protocol: 'TCP'
+      sourcePortRange: '*'
+      destinationPortRange: '6390'
+      sourceAddressPrefix: 'AzureLoadBalancer'
+      destinationAddressPrefix: 'VirtualNetwork'
+      access: 'Allow'
+      priority: 1002
+      direction: 'Inbound'
+    }
+  }
+  {
+    name: 'AllowStroageOutbound'
+    properties: {
+      description: 'AllowStroageOutbound'
+      protocol: 'TCP'
+      sourcePortRange: '*'
+      destinationPortRange: '443'
+      sourceAddressPrefix: 'VirtualNetwork'
+      destinationAddressPrefix: 'Storage'
+      access: 'Allow'
+      priority: 1003
+      direction: 'Outbound'
+    }
+  }
+  {
+    name: 'AllowSQLOutbound'
+    properties: {
+      description: 'AllowSQLOutbound'
+      protocol: 'TCP'
+      sourcePortRange: '*'
+      destinationPortRange: '1443'
+      sourceAddressPrefix: 'VirtualNetwork'
+      destinationAddressPrefix: 'SQL'
+      access: 'Allow'
+      priority: 1004
+      direction: 'Outbound'
+    }
+  }
+  {
+    name: 'AllowKVOutbound'
+    properties: {
+      protocol: 'TCP'
+      sourcePortRange: '*'
+      destinationPortRange: '443'
+      sourceAddressPrefix: 'VirtualNetwork'
+      destinationAddressPrefix: 'AzureKeyVault'
+      access: 'Allow'
+      priority: 1005
+      direction: 'Outbound'
+    }
+  }
+]
+
+// NSG for API Management subnet
+module apimnsg 'core/network/nsg.bicep' = if ( private ) {
+  scope: rg
+  name: 'NSG_apim'
+  params: {
+    nsgName: 'NSG_apim'
+    location: location
+    tags: tags
+    securityRules: apimNSG
+  }
+}
 
 output AZURE_LOCATION string = location
 output AZURE_OPENAI_SERVICE string = cognitiveServices.outputs.name
