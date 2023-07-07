@@ -28,6 +28,7 @@ param sourceIpAddress string = '10.10.10.10'
 param private bool = false
 
 param resourceGroupName string = ''
+param openaiResourceGroupName string = 'rg-openai'
 
 param apiManagementName string = ''
 
@@ -40,11 +41,10 @@ param storageAccountName string = ''
 param containerName string = 'content'
 param searchIndexName string = 'gptkbindex'
 
-param cognitiveServicesAccountName string = ''
+param cognitiveServicesAccountName string = 'sheryaar-oai-instance'
 param cognitiveServicesSkuName string = 'S0'
-param gptDeploymentName string = 'davinci'
-param gptModelName string = 'text-davinci-003'
 param chatGptDeploymentName string = 'chat'
+param chatGptDeploymentCapacity int = 120
 param chatGptModelName string = 'gpt-35-turbo'
 
 var abbrs = loadJsonContent('abbreviations.json')
@@ -54,6 +54,13 @@ var tags = { 'env-name': environmentName }
 // Organize resources in a resource group
 resource rg 'Microsoft.Resources/resourceGroups@2021-04-01' = {
   name: !empty(resourceGroupName) ? resourceGroupName : '${environmentName}'
+  location: location
+  tags: tags
+}
+
+// Organize resources in a resource group
+resource openaiRg 'Microsoft.Resources/resourceGroups@2021-04-01' = {
+  name: !empty(openaiResourceGroupName) ? openaiResourceGroupName : 'rg-openai'
   location: location
   tags: tags
 }
@@ -110,7 +117,7 @@ module backend 'core/host/appservice.bicep' = {
       AZURE_OPENAI_SERVICE: cognitiveServices.outputs.name
       AZURE_SEARCH_INDEX: searchIndexName
       AZURE_SEARCH_SERVICE: searchServices.outputs.name
-      AZURE_OPENAI_GPT_DEPLOYMENT: gptDeploymentName
+      AZURE_OPENAI_GPT_DEPLOYMENT: chatGptDeploymentName
       AZURE_OPENAI_CHATGPT_DEPLOYMENT: chatGptDeploymentName
     }
     // vnet integration for private environment
@@ -121,7 +128,7 @@ module backend 'core/host/appservice.bicep' = {
 }
 
 module cognitiveServices 'core/ai/cognitiveservices.bicep' = {
-  scope: rg
+  scope: openaiRg
   name: 'openai'
   params: {
     name: !empty(cognitiveServicesAccountName) ? cognitiveServicesAccountName : '${abbrs.cognitiveServicesAccounts}${resourceToken}'
@@ -132,27 +139,21 @@ module cognitiveServices 'core/ai/cognitiveservices.bicep' = {
     }
     deployments: [
       {
-        name: gptDeploymentName
-        model: {
-          format: 'OpenAI'
-          name: gptModelName
-          version: '1'
-        }
-        scaleSettings: {
-          scaleType: 'Standard'
-        }
-      }
-      {
         name: chatGptDeploymentName
         model: {
           format: 'OpenAI'
           name: chatGptModelName
           version: '0301'
         }
+        sku: {
+          name: 'Standard'
+          capacity: chatGptDeploymentCapacity
+        }
         scaleSettings: {
           scaleType: 'Standard'
         }
       }
+      
     ]
     // for private environment
     private: private
