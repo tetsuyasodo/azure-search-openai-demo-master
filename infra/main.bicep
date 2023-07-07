@@ -44,7 +44,7 @@ param searchIndexName string = 'gptkbindex'
 param cognitiveServicesAccountName string = 'sheryaar-openai-west'
 param cognitiveServicesSkuName string = 'S0'
 param chatGptDeploymentName string = 'chat'
-param chatGptDeploymentCapacity int = 120
+param chatGptDeploymentCapacity int = 240
 param chatGptModelName string = 'gpt-35-turbo'
 
 var abbrs = loadJsonContent('abbreviations.json')
@@ -60,7 +60,7 @@ resource rg 'Microsoft.Resources/resourceGroups@2021-04-01' = {
 
 // Organize resources in a resource group
 resource openaiRg 'Microsoft.Resources/resourceGroups@2021-04-01' = {
-  name: !empty(openaiResourceGroupName) ? openaiResourceGroupName : 'rg-openai'
+  name: !empty(openaiResourceGroupName) ? openaiResourceGroupName : 'rg-openai-westeurope'
   location: location
   tags: tags
 }
@@ -137,24 +137,6 @@ module cognitiveServices 'core/ai/cognitiveservices.bicep' = {
     sku: {
       name: cognitiveServicesSkuName
     }
-    deployments: [
-      {
-        name: chatGptDeploymentName
-        model: {
-          format: 'OpenAI'
-          name: chatGptModelName
-          version: '0301'
-        }
-        sku: {
-          name: 'Standard'
-          capacity: chatGptDeploymentCapacity
-        }
-        scaleSettings: {
-          scaleType: 'Standard'
-        }
-      }
-      
-    ]
     // for private environment
     private: private
     sourceIpAddress: ( private) ? sourceIpAddress : ''
