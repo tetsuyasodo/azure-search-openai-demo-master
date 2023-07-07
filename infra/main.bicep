@@ -28,7 +28,7 @@ param sourceIpAddress string = '10.10.10.10'
 param private bool = false
 
 param resourceGroupName string = ''
-param openaiResourceGroupName string = 'rg-openai'
+param openaiResourceGroupName string = 'rg-openai-westeurope'
 
 param apiManagementName string = ''
 
@@ -41,7 +41,7 @@ param storageAccountName string = ''
 param containerName string = 'content'
 param searchIndexName string = 'gptkbindex'
 
-param cognitiveServicesAccountName string = 'sheryaar-oai-instance'
+param cognitiveServicesAccountName string = 'sheryaar-openai-west'
 param cognitiveServicesSkuName string = 'S0'
 param chatGptDeploymentName string = 'chat'
 param chatGptDeploymentCapacity int = 120
