@@ -41,7 +41,7 @@ param storageAccountName string = ''
 param containerName string = 'content'
 param searchIndexName string = 'gptkbindex'
 
-param cognitiveServicesAccountName string = 'ntteast-openai-trial2'
+param cognitiveServicesAccountName string = ''
 param cognitiveServicesSkuName string = 'S0'
 param chatGptDeploymentName string = 'gpt-35-turbo'
 param chatGptDeploymentCapacity int = 240
